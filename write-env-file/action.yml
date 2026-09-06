@@ -1,0 +1,17 @@
+name: Write an env file
+description: Writes KEY=VALUE lines to a file verbatim.
+inputs:
+  content:
+    description: 'KEY=VALUE lines. Blank lines and `#` comments are allowed; anything else fails the step.'
+    required: true
+  path:
+    description: File to write.
+    required: false
+    default: .env
+  copy-to:
+    description: Extra paths to copy the file to, whitespace-separated.
+    required: false
+    default: ''
+runs:
+  using: node24
+  main: dist/index.mjs

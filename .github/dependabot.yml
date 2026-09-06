@@ -1,0 +1,35 @@
+version: 2
+
+updates:
+  # dependabot-bundles.yml rebuilds dist/ on these PRs.
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Europe/Oslo'
+    open-pull-requests-limit: 10
+    pull-request-branch-name:
+      separator: '-'
+    groups:
+      npm:
+        patterns: ['*']
+
+  # Composite actions live outside .github/workflows, so each directory is listed.
+  - package-ecosystem: 'github-actions'
+    directories:
+      - '/'
+      - '/setup-node-pnpm'
+      - '/setup-jvm'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Europe/Oslo'
+    open-pull-requests-limit: 10
+    pull-request-branch-name:
+      separator: '-'
+    groups:
+      actions:
+        patterns: ['*']

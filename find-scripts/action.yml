@@ -1,0 +1,20 @@
+name: Find package.json scripts
+description: Outputs whether each named package.json script exists.
+inputs:
+  scripts:
+    description: Script names, whitespace-separated.
+    required: true
+  require:
+    description: Names that must exist, or the step fails.
+    required: false
+    default: ''
+outputs:
+  lint:
+    description: Whether there is a `lint` script. Every name in `scripts` gets an output like this.
+  build:
+    description: Whether there is a `build` script.
+  test:
+    description: Whether there is a `test` script.
+runs:
+  using: node24
+  main: dist/index.mjs

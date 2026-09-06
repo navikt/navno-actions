@@ -1,0 +1,5 @@
+name: Check package.json declares a Node version
+description: Fails unless package.json declares `engines.node`.
+runs:
+  using: node24
+  main: dist/index.mjs

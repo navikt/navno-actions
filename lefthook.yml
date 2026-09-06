@@ -1,0 +1,42 @@
+pre-commit:
+  piped: true
+  skip:
+    - merge
+    - rebase
+  jobs:
+    - name: format
+      run: pnpm exec oxfmt {staged_files}
+      glob: '*.{ts,mts,cts,js,mjs,cjs,json,jsonc,yml,yaml,md}'
+      exclude:
+        - '**/dist/**'
+        - pnpm-lock.yaml
+      stage_fixed: true
+    - name: checks
+      group:
+        parallel: true
+        jobs:
+          - name: lint
+            run: pnpm exec oxlint {staged_files}
+            glob: '*.{ts,mts,cts,js,mjs,cjs}'
+            exclude:
+              - '**/dist/**'
+          - name: typecheck
+            run: pnpm run typecheck
+            glob:
+              - '*.{ts,mts,cts}'
+              - tsconfig.json
+
+pre-push:
+  parallel: true
+  jobs:
+    - name: lint
+      run: pnpm run lint
+    - name: format
+      run: pnpm run format:check
+    - name: typecheck
+      run: pnpm run typecheck
+    - name: test
+      run: pnpm test
+    - name: build
+      run: pnpm run build && git diff --exit-code -- '*/dist/'
+      fail_text: dist/ is stale. Commit the rebuilt bundles.

@@ -1,0 +1,9 @@
+name: pnpm deploy without symlinks
+description: Runs `pnpm deploy --prod --legacy` for each listed package.
+inputs:
+  packages:
+    description: '`<package> <output-dir>` pairs, one per line.'
+    required: true
+runs:
+  using: node24
+  main: dist/index.mjs

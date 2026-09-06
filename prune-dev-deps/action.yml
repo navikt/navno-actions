@@ -1,0 +1,10 @@
+name: Prune to production dependencies
+description: Deletes node_modules and reinstalls production dependencies only.
+inputs:
+  remove:
+    description: Directories to delete, whitespace-separated. Globs allowed.
+    required: false
+    default: node_modules
+runs:
+  using: node24
+  main: dist/index.mjs

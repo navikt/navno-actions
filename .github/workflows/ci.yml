@@ -1,0 +1,98 @@
+name: CI
+
+# navno-actions' own checks. The TypeScript actions are linted, typechecked,
+# unit-tested by spawning them the way the runner does, and bundled; a pull
+# request cannot ship a stale dist/. Then every action is exercised once on a
+# real runner from its dist/ bundle, with this repo as the fixture.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./setup-node-pnpm
+
+      - run: pnpm run lint
+
+      - run: pnpm run format:check
+
+      - run: pnpm run typecheck
+
+      - run: pnpm test
+
+      - run: pnpm run build
+
+      - name: The committed bundles must match the source (run `pnpm run build`)
+        run: git diff --exit-code -- '*/dist/'
+
+      - name: Lint workflows and actions
+        uses: docker://rhysd/actionlint:latest
+        with:
+          args: -color
+
+  test-node-actions:
+    name: Node actions on a runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # This repo's own package.json is the fixture.
+      - uses: ./check-node-version
+
+      - uses: ./setup-node-pnpm
+
+      - id: scripts
+        uses: ./find-scripts
+        with:
+          scripts: build nope
+
+      - name: find-scripts saw build and not nope
+        env:
+          BUILD: ${{ steps.scripts.outputs.build }}
+          NOPE: ${{ steps.scripts.outputs.nope }}
+        run: test "$BUILD" = true && test "$NOPE" = false
+
+      - uses: ./write-env-file
+        with:
+          content: |
+            ENV=ci
+            URL=https://example.test/$literal "quoted"
+          path: fixture/.env
+          copy-to: fixture/copy/.env
+
+      - name: write-env-file wrote both files byte for byte
+        run: |
+          printf 'ENV=ci\nURL=https://example.test/$literal "quoted"\n' | diff - fixture/.env
+          diff fixture/.env fixture/copy/.env
+
+      - uses: ./prune-dev-deps
+        with:
+          remove: node_modules
+
+      - name: prune-dev-deps left only production dependencies
+        run: test -d node_modules/@actions/core && test ! -d node_modules/tsdown
+
+  test-jvm-actions:
+    name: JVM actions on a runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./setup-jvm
+
+      - name: The JDK is on PATH at the default version
+        run: java -version 2>&1 | grep -q '"21' && gradle --version

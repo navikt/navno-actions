@@ -1,0 +1,33 @@
+{
+	"name": "navno-actions",
+	"private": true,
+	"description": "Shared GitHub Actions for the nav.no repositories",
+	"type": "module",
+	"scripts": {
+		"build": "tsdown",
+		"test": "node --test",
+		"lint": "oxlint",
+		"format": "oxfmt",
+		"format:check": "oxfmt --check",
+		"all": "pnpm run format && pnpm run lint && pnpm run typecheck && pnpm test && pnpm run build",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@actions/core": "^3.0.1",
+		"@actions/exec": "^3.0.0",
+		"@actions/glob": "^0.7.0",
+		"@actions/io": "^3.0.2"
+	},
+	"devDependencies": {
+		"@types/node": "^24.13.3",
+		"lefthook": "^2.1.12",
+		"oxfmt": "^0.66.0",
+		"oxlint": "^1.81.0",
+		"tsdown": "^0.22.14",
+		"typescript": "^7.0.2"
+	},
+	"engines": {
+		"node": ">=24"
+	},
+	"packageManager": "pnpm@11.24.0"
+}
