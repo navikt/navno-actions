@@ -1,6 +1,6 @@
 # navno-actions
 
-Shared GitHub Actions for the nav.no repositories. Reference an action as
+Shared GitHub Actions for the navno team's repositories. Reference an action as
 `navikt/navno-actions/<action>@v1`.
 
 ## setup-node-pnpm
