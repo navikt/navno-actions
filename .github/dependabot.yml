@@ -22,6 +22,7 @@ updates:
       - '/'
       - '/setup-node-pnpm'
       - '/setup-jvm'
+      - '/run-playwright'
     schedule:
       interval: 'weekly'
       day: 'monday'

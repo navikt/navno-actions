@@ -1,0 +1,69 @@
+name: Run Playwright
+description: Installs Playwright browsers, cached per Playwright version, then runs the suite.
+
+inputs:
+  run:
+    description: Command that runs the suite.
+    required: false
+    default: pnpm exec playwright test
+  working-directory:
+    description: Package to run from. Playwright must be installed there or at the workspace root.
+    required: false
+    default: .
+
+outputs:
+  version:
+    description: The installed Playwright version.
+    value: ${{ steps.resolve.outputs.version }}
+  cache-hit:
+    description: Whether the browsers were restored from the cache.
+    value: ${{ steps.cache.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the installed Playwright version
+      id: resolve
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        version=$(pnpm exec playwright --version)
+        echo "version=${version#Version }" >> "$GITHUB_OUTPUT"
+
+    # Exact key, no restore-keys: one cache entry per Playwright version.
+    - name: Restore browsers
+      id: cache
+      uses: actions/cache/restore@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.arch }}-playwright-${{ steps.resolve.outputs.version }}
+
+    # Skips browsers already present, so on a cache hit this is only the apt step.
+    - name: Install browsers and system dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: pnpm exec playwright install --with-deps
+
+    # Saved before the suite runs, so a failing test does not throw away the download.
+    - name: Save browsers
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.arch }}-playwright-${{ steps.resolve.outputs.version }}
+
+    - name: Run the suite
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: ${{ inputs.run }}
+
+    - name: Upload the report
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: playwright-report-${{ github.run_id }}-${{ github.run_attempt }}
+        path: |
+          ${{ inputs.working-directory }}/playwright-report/
+          ${{ inputs.working-directory }}/test-results/
+        if-no-files-found: ignore
+        retention-days: 7
