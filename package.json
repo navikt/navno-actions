@@ -19,11 +19,11 @@
 		"@actions/io": "^3.0.2"
 	},
 	"devDependencies": {
-		"@types/node": "^24.13.3",
+		"@types/node": "^26.4.1",
 		"lefthook": "^2.1.12",
 		"oxfmt": "^0.66.0",
 		"oxlint": "^1.81.0",
-		"tsdown": "^0.22.14",
+		"tsdown": "^0.23.0",
 		"typescript": "^7.0.2"
 	},
 	"engines": {
