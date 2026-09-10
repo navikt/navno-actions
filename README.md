@@ -74,6 +74,37 @@ step can be skipped when the script is missing.
   run: pnpm run lint
 ```
 
+## run-playwright
+
+Installs the Playwright browsers and their system dependencies, then runs the
+suite. The browsers are cached under an exact key built from the runner
+architecture and the installed Playwright version, so the cache holds one entry
+per version rather than one per run. A hit skips the download and only the
+system packages are installed, since those live outside the cached directory.
+The cache is saved before the suite runs, so a failing test does not throw away
+the download. On failure `playwright-report/` and `test-results/` are uploaded
+as an artifact.
+
+The version comes from the installed `@playwright/test`, `playwright` or
+`playwright-core` package, whichever resolves first. Every browser in the
+config is installed; there is no browser input.
+
+| Input               | Default                     | Description                                   |
+| ------------------- | --------------------------- | --------------------------------------------- |
+| `run`               | `pnpm exec playwright test` | Command that runs the suite                   |
+| `working-directory` | `.`                         | Directory Playwright is resolved and run from |
+
+| Output      | Description                              |
+| ----------- | ---------------------------------------- |
+| `version`   | The resolved Playwright version          |
+| `cache-hit` | Whether the browsers came from the cache |
+
+```yaml
+- uses: navikt/navno-actions/run-playwright@v1
+  with:
+    run: pnpm run test:e2e
+```
+
 ## prune-dev-deps
 
 Deletes `node_modules` directories and reinstalls with

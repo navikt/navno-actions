@@ -75,6 +75,8 @@ jobs:
 
       - name: write-env-file wrote both files byte for byte
         run: |
+          # The single quotes are the point: $literal must reach the file unexpanded.
+          # shellcheck disable=SC2016
           printf 'ENV=ci\nURL=https://example.test/$literal "quoted"\n' | diff - fixture/.env
           diff fixture/.env fixture/copy/.env
 

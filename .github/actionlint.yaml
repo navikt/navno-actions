@@ -1,0 +1,7 @@
+paths:
+  .github/workflows/ci.yml:
+    ignore:
+      # find-scripts emits one output per name in its `scripts` input, so
+      # action.yml cannot declare them all. The CI job deliberately asks for a
+      # name that does not exist to prove the action reports it as false.
+      - 'property "nope" is not defined in object type'

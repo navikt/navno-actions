@@ -1,0 +1,69 @@
+name: Run Playwright
+description: Installs Playwright browsers and system dependencies, caching the browsers on the resolved Playwright version, then runs the suite.
+
+inputs:
+  run:
+    description: Command that runs the suite.
+    required: false
+    default: pnpm exec playwright test
+  working-directory:
+    description: Directory Playwright is resolved and run from.
+    required: false
+    default: .
+
+outputs:
+  version:
+    description: The resolved Playwright version.
+    value: ${{ steps.resolve.outputs.version }}
+  cache-hit:
+    description: Whether the browsers were restored from the cache.
+    value: ${{ steps.cache.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the installed Playwright version
+      id: resolve
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: node "${{ github.action_path }}/dist/index.mjs"
+
+    # Exact key, no restore-keys: a hit skips the save below, so the cache holds
+    # one entry per Playwright version rather than one per run.
+    - name: Restore browsers
+      id: cache
+      uses: actions/cache/restore@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.arch }}-playwright-${{ steps.resolve.outputs.version }}
+
+    # Skips browsers that are already present, so this is only the apt step on a
+    # cache hit. The system libraries live outside the cached directory.
+    - name: Install browsers and system dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: pnpm exec playwright install --with-deps
+
+    # Before the suite runs, so a failing test does not throw away the download.
+    - name: Save browsers
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.arch }}-playwright-${{ steps.resolve.outputs.version }}
+
+    - name: Run the suite
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: ${{ inputs.run }}
+
+    - name: Upload the report
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: playwright-report-${{ github.run_id }}-${{ github.run_attempt }}
+        path: |
+          ${{ inputs.working-directory }}/playwright-report/
+          ${{ inputs.working-directory }}/test-results/
+        if-no-files-found: ignore
+        retention-days: 7
