@@ -1,0 +1,27 @@
+name: Find a release
+description: Finds a release, the commit its tag points at and the image recorded in its body.
+inputs:
+  tag:
+    description: Release tag. Must start with `tag-prefix`. Empty picks the release before the newest one, skipping releases of the same commit.
+    required: false
+    default: ''
+  tag-prefix:
+    description: Only tags starting with this prefix are considered.
+    required: false
+    default: release/prod@
+  token:
+    description: 'Token with `contents: read`.'
+    required: false
+    default: ${{ github.token }}
+outputs:
+  tag:
+    description: The release tag.
+  sha:
+    description: The commit the tag points at, 40 hex characters.
+  image:
+    description: "The digest-pinned image from the release's `Deployed image:` line."
+  url:
+    description: The release page.
+runs:
+  using: node24
+  main: dist/index.mjs

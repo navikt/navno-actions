@@ -121,6 +121,64 @@ producing symlink-free directories for a Docker image.
       ./packages/server nonsymlink/server
 ```
 
+## find-release
+
+Finds a release, the commit its tag points at and the image recorded in its
+body, so a later job can deploy that image again, e.g. to roll back. It only
+makes GET requests, so `contents: read` is enough.
+
+An empty `tag` picks the release before the newest one. Only releases whose
+tag starts with `tag-prefix` count; drafts are left out and pre-releases count
+like any other. They are ordered by `published_at`, then by tag name. Older
+releases of the newest release's commit are skipped, since deploying one would
+deploy the same code again. A given `tag` must start with `tag-prefix`, use
+letters, digits and `. _ / @ -` only and contain no `..`. It is checked before
+any request, since it goes into API paths.
+
+The image comes from the first line of the body that is exactly
+
+```text
+Deployed image: `<image>`
+```
+
+which navno-ci's `release.yml` writes from its `image` input. The image may
+only contain letters, digits and `. _ / @ : -`, so it is safe in a shell and a
+`,` or `=` can't add entries to nais-deploy's `var:`. It must end in
+`@sha256:<digest>`: a tag such as `latest` moves, and only the digest says what
+the release deployed.
+
+When a lookup or the image fails, the step lists the ten newest releases in the
+log and the job summary, with whether each has the line.
+
+| Input        | Default               | Description                                                |
+| ------------ | --------------------- | ---------------------------------------------------------- |
+| `tag`        |                       | Release tag. Empty picks the release before the newest one |
+| `tag-prefix` | `release/prod@`       | Only tags starting with this prefix are considered         |
+| `token`      | `${{ github.token }}` | Token with `contents: read`                                |
+
+| Output  | Description                                             |
+| ------- | ------------------------------------------------------- |
+| `tag`   | The release tag                                         |
+| `sha`   | The commit the tag points at, 40 hex characters         |
+| `image` | The digest-pinned image from the `Deployed image:` line |
+| `url`   | The release page                                        |
+
+```yaml
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      image: ${{ steps.release.outputs.image }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - id: release
+        uses: navikt/navno-actions/find-release@v1
+        with:
+          tag: ${{ inputs.release-tag }}
+```
+
 ## check-node-version
 
 Fails unless `package.json` declares `engines.node`. No inputs.
