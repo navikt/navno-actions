@@ -32,7 +32,7 @@ the default branch.
 | Input              | Default   | Description                                                                                        |
 | ------------------ | --------- | -------------------------------------------------------------------------------------------------- |
 | `java-version`     | `21`      | JDK major version                                                                                  |
-| `distribution`     | `temurin` | JDK distribution                                                                                   |
+| `distribution`     | `temurin` | JDK distribution. `adopt`, `adopt-hotspot` and `adopt-openj9` are gone; use `temurin` or `semeru`  |
 | `dependency-graph` | `auto`    | `auto`, `disabled`, `generate` or `generate-and-submit`. `auto` submits on the default branch only |
 
 ## write-env-file
