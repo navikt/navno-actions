@@ -1,2 +1,3 @@
 node_modules/
 lefthook-local.yml
+run-playwright/fixture/test-results/

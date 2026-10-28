@@ -1,5 +1,7 @@
 name: Run Playwright
-description: Installs Playwright browsers, cached per Playwright version, then runs the suite.
+description: >
+  Runs the Playwright suite inside the official Playwright Docker image for the installed
+  Playwright version, so the runner never installs browsers or their system packages.
 
 inputs:
   run:
@@ -15,47 +17,86 @@ outputs:
   version:
     description: The installed Playwright version.
     value: ${{ steps.resolve.outputs.version }}
-  cache-hit:
-    description: Whether the browsers were restored from the cache.
-    value: ${{ steps.cache.outputs.cache-hit }}
+  image:
+    description: The Playwright image the suite ran in.
+    value: ${{ steps.resolve.outputs.image }}
 
+# `playwright install --with-deps` pulls ~140 MB of .debs from the runner's Ubuntu mirror on every
+# run, and a slow mirror can stall a build for the whole job timeout. The Playwright image ships
+# the browsers and their system packages, so this action pulls that image instead and runs the
+# suite in it, reusing the runner's checkout, node_modules, Node and pnpm through bind mounts.
 runs:
   using: composite
   steps:
-    - name: Resolve the installed Playwright version
+    - name: Resolve the Playwright image
       id: resolve
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
         version=$(pnpm exec playwright --version)
-        echo "version=${version#Version }" >> "$GITHUB_OUTPUT"
+        version=${version#Version }
+        # Same Ubuntu release as the runner, so anything built on the runner also runs in the image.
+        codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "image=mcr.microsoft.com/playwright:v$version-$codename" >> "$GITHUB_OUTPUT"
 
-    # Exact key, no restore-keys: one cache entry per Playwright version.
-    - name: Restore browsers
-      id: cache
-      uses: actions/cache/restore@v6
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.arch }}-playwright-${{ steps.resolve.outputs.version }}
-
-    # Skips browsers already present, so on a cache hit this is only the apt step.
-    - name: Install browsers and system dependencies
+    - name: Pull the Playwright image
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: pnpm exec playwright install --with-deps
-
-    # Saved before the suite runs, so a failing test does not throw away the download.
-    - name: Save browsers
-      if: steps.cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v6
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.arch }}-playwright-${{ steps.resolve.outputs.version }}
+      env:
+        IMAGE: ${{ steps.resolve.outputs.image }}
+      run: |
+        for attempt in 1 2 3; do
+          if docker pull --quiet "$IMAGE"; then
+            exit 0
+          fi
+          echo "::warning::docker pull $IMAGE failed (attempt $attempt of 3)"
+          sleep 10
+        done
+        echo "::error::Could not pull $IMAGE. Is there a Playwright image for this version and Ubuntu release? See https://mcr.microsoft.com/en-us/product/playwright/about"
+        exit 1
 
     - name: Run the suite
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: ${{ inputs.run }}
+      env:
+        IMAGE: ${{ steps.resolve.outputs.image }}
+        PLAYWRIGHT_RUN: ${{ inputs.run }}
+      run: |
+        # The runner's home (checkout, temp dir, pnpm) and tool cache (Node) at the same paths,
+        # skipping any directory already inside an earlier mount.
+        mounts=()
+        mounted=()
+        for dir in "$HOME" "$RUNNER_TOOL_CACHE" "$GITHUB_WORKSPACE" "$RUNNER_TEMP"; do
+          [[ -n $dir && -d $dir ]] || continue
+          for parent in "${mounted[@]}"; do
+            [[ $dir == "$parent" || $dir == "$parent"/* ]] && continue 2
+          done
+          mounted+=("$dir")
+          mounts+=(--volume "$dir:$dir")
+        done
+
+        # The step's environment, including the caller's secrets, under the same names.
+        # PLAYWRIGHT_BROWSERS_PATH must stay the image's, which is where its browsers are.
+        envs=()
+        while read -r name; do
+          case $name in
+            HOSTNAME | PLAYWRIGHT_BROWSERS_PATH | XDG_RUNTIME_DIR | DBUS_SESSION_BUS_ADDRESS | PWD | OLDPWD | SHLVL | _) ;;
+            *) envs+=(--env "$name") ;;
+          esac
+        done < <(compgen -e)
+
+        # Runs as the runner user, so the files the suite writes stay owned by it. The runner's
+        # passwd and group give that uid a name and home inside the image.
+        # --init and --ipc=host per https://playwright.dev/docs/docker#recommended-docker-configuration
+        docker run --rm --init --ipc=host --network=host \
+          --user "$(id -u):$(id -g)" \
+          --volume /etc/passwd:/etc/passwd:ro \
+          --volume /etc/group:/etc/group:ro \
+          "${mounts[@]}" \
+          "${envs[@]}" \
+          --workdir "$PWD" \
+          "$IMAGE" \
+          bash -eo pipefail -c "$PLAYWRIGHT_RUN"
 
     - name: Upload the report
       if: failure()

@@ -76,8 +76,18 @@ step can be skipped when the script is missing.
 
 ## run-playwright
 
-Installs the Playwright browsers and system dependencies, then runs the suite.
-Browsers are cached per Playwright version (from `pnpm exec playwright --version`).
+Runs the suite inside the official Playwright Docker image,
+`mcr.microsoft.com/playwright:v<version>-<ubuntu codename>`, with the version from
+`pnpm exec playwright --version` and the runner's Ubuntu release. The image ships the
+browsers and their system packages, so nothing is installed on the runner. Before, every run
+installed ~140 MB of system packages from the Ubuntu mirror, and a slow mirror could stall
+the build until the job timed out.
+
+The container reuses the runner's checkout, `node_modules`, Node and pnpm through bind
+mounts at the same paths. It runs as the runner user, on the host network, with the step's
+environment (including any secrets) passed through. Install and build on the runner first,
+as with the `setup-node-pnpm` action. It does not work in a job that itself runs in a `container:`.
+
 On failure `playwright-report/` and `test-results/` are uploaded as an artifact.
 
 | Input               | Default                     | Description                                                                      |
@@ -85,10 +95,10 @@ On failure `playwright-report/` and `test-results/` are uploaded as an artifact.
 | `run`               | `pnpm exec playwright test` | Command that runs the suite                                                      |
 | `working-directory` | `.`                         | Package to run from. Playwright must be installed there or at the workspace root |
 
-| Output      | Description                              |
-| ----------- | ---------------------------------------- |
-| `version`   | The installed Playwright version         |
-| `cache-hit` | Whether the browsers came from the cache |
+| Output    | Description                           |
+| --------- | ------------------------------------- |
+| `version` | The installed Playwright version      |
+| `image`   | The Playwright image the suite ran in |
 
 ```yaml
 - uses: navikt/navno-actions/run-playwright@v1

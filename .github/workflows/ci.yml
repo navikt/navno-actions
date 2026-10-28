@@ -87,6 +87,36 @@ jobs:
       - name: prune-dev-deps left only production dependencies
         run: test -d node_modules/@actions/core && test ! -d node_modules/tsdown
 
+  test-run-playwright:
+    name: run-playwright on a runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./setup-node-pnpm
+
+      # Only the fixture suite needs it, so it is not a dependency of this repo.
+      - run: pnpm add --save-dev @playwright/test
+
+      - id: playwright
+        uses: ./run-playwright
+        env:
+          SMOKE_SECRET: |
+            two
+            lines
+        with:
+          run: pnpm exec playwright test --config run-playwright/fixture/playwright.config.ts
+
+      - name: run-playwright picked the image for this runner and left its output owned by the runner user
+        env:
+          IMAGE: ${{ steps.playwright.outputs.image }}
+          VERSION: ${{ steps.playwright.outputs.version }}
+        run: |
+          codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+          test "$IMAGE" = "mcr.microsoft.com/playwright:v$VERSION-$codename"
+          test "$(stat -c %u run-playwright/fixture/test-results)" = "$(id -u)"
+
   test-jvm-actions:
     name: JVM actions on a runner
     runs-on: ubuntu-latest
