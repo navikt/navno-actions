@@ -115,7 +115,7 @@ jobs:
         run: |
           codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
           test "$IMAGE" = "mcr.microsoft.com/playwright:v$VERSION-$codename"
-          test "$(stat -c %u run-playwright/fixture/test-results)" = "$(id -u)"
+          test "$(stat -c %u test-results)" = "$(id -u)"
 
   test-jvm-actions:
     name: JVM actions on a runner
